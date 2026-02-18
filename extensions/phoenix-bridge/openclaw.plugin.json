@@ -1,0 +1,97 @@
+{
+  "id": "phoenix-bridge",
+  "kind": "tools",
+  "uiHints": {
+    "mcpServers.enhancedMemory.enabled": {
+      "label": "Enhanced Memory",
+      "help": "Enable Phoenix 4-tier persistent memory"
+    },
+    "mcpServers.clusterExecution.enabled": {
+      "label": "Cluster Execution",
+      "help": "Enable distributed task execution across Phoenix cluster"
+    },
+    "mcpServers.agentRuntime.enabled": {
+      "label": "Agent Runtime",
+      "help": "Enable Prometheus agent loop for autonomous task execution"
+    },
+    "prometheusEndpoint": {
+      "label": "Prometheus Endpoint",
+      "placeholder": "http://localhost:8080/prometheus",
+      "help": "HTTP endpoint for Prometheus agent loop"
+    },
+    "enableMemoryInjection": {
+      "label": "Memory Injection",
+      "help": "Auto-inject relevant memories before conversations"
+    },
+    "enableSessionPersist": {
+      "label": "Session Persistence",
+      "help": "Auto-store session outcomes to Phoenix memory"
+    },
+    "enableToolGuard": {
+      "label": "Tool Safety Guard",
+      "help": "Ember conscience keeper integration for tool gating"
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mcpServers": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enhancedMemory": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "command": { "type": "string" },
+              "args": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "clusterExecution": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "command": { "type": "string" },
+              "args": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "agentRuntime": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "command": { "type": "string" },
+              "args": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "prometheusEndpoint": {
+        "type": "string"
+      },
+      "clusterNodes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "host": { "type": "string" },
+            "role": { "type": "string" }
+          }
+        }
+      },
+      "enableMemoryInjection": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableSessionPersist": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableToolGuard": {
+        "type": "boolean",
+        "default": true
+      }
+    }
+  }
+}
