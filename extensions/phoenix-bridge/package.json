@@ -5,6 +5,7 @@
   "description": "Bridge to Phoenix AGI system - connects OpenClaw to Phoenix MCP servers for autonomous task execution, persistent memory, and cluster operations",
   "type": "module",
   "dependencies": {
+    "@sinclair/typebox": "0.34.48",
     "ws": "^8.19.0"
   },
   "devDependencies": {
