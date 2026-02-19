@@ -7,6 +7,11 @@ import {
   createSessionEndHook,
   createAfterCompactionHook,
 } from "./src/hooks/session-persist.js";
+import {
+  createLlmInputHook,
+  createLlmOutputHook,
+  createBeforeCompactionHook as createBeforeCompactionTelemetryHook,
+} from "./src/hooks/telemetry.js";
 import { createBeforeToolCallHook, createAfterToolCallHook } from "./src/hooks/tool-guard.js";
 import { PhoenixMcpClient } from "./src/phoenix-client.js";
 import { createOllamaProvider } from "./src/provider/ollama-provider.js";
@@ -96,6 +101,11 @@ const phoenixBridgePlugin = {
           description: "Route simple prompts to local Ollama (requires /login ollama)",
           default: true,
         },
+        enableTelemetry: {
+          type: "boolean",
+          description: "Record LLM traffic and compaction snapshots to Phoenix memory",
+          default: true,
+        },
         modelRouting: {
           type: "object",
           properties: {
@@ -137,6 +147,10 @@ const phoenixBridgePlugin = {
       enableModelRouting: {
         label: "Model Routing",
         help: "Route simple prompts to local Ollama for zero-cost inference",
+      },
+      enableTelemetry: {
+        label: "LLM Telemetry",
+        help: "Record LLM input/output and pre-compaction snapshots to Phoenix memory",
       },
     },
   },
@@ -219,6 +233,13 @@ const phoenixBridgePlugin = {
     if (config.enableToolGuard !== false) {
       api.on("before_tool_call", createBeforeToolCallHook(phoenixClient, logger));
       api.on("after_tool_call", createAfterToolCallHook(phoenixClient, logger));
+    }
+
+    // Telemetry: LLM traffic logging + pre-compaction snapshots
+    if (config.enableTelemetry !== false) {
+      api.on("llm_input", createLlmInputHook(phoenixClient, logger));
+      api.on("llm_output", createLlmOutputHook(phoenixClient, logger));
+      api.on("before_compaction", createBeforeCompactionTelemetryHook(phoenixClient, logger));
     }
 
     // =========================================================================
@@ -515,7 +536,7 @@ const phoenixBridgePlugin = {
     });
 
     logger.info(
-      "Phoenix Bridge v2 registered (provider + channel + 7 hooks + service + commands + gateway)",
+      "Phoenix Bridge v2 registered (provider + channel + 10 hooks + service + commands + gateway)",
     );
   },
 };

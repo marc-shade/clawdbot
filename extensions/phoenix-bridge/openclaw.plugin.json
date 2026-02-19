@@ -36,6 +36,10 @@
     "enableModelRouting": {
       "label": "Model Routing",
       "help": "Route simple prompts to local Ollama for zero-cost inference"
+    },
+    "enableTelemetry": {
+      "label": "LLM Telemetry",
+      "help": "Record LLM input/output and pre-compaction snapshots to Phoenix memory"
     }
   },
   "configSchema": {
@@ -99,6 +103,10 @@
         "default": true
       },
       "enableModelRouting": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableTelemetry": {
         "type": "boolean",
         "default": true
       },
