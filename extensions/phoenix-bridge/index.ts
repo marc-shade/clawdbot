@@ -8,6 +8,7 @@ import {
 } from "./src/hooks/session-persist.js";
 import { createBeforeToolCallHook, createAfterToolCallHook } from "./src/hooks/tool-guard.js";
 import { PhoenixMcpClient } from "./src/phoenix-client.js";
+import { createOllamaProvider } from "./src/provider/ollama-provider.js";
 import { createPhoenixService } from "./src/service.js";
 import { createPhoenixAgentTools } from "./src/tools/agent.js";
 import { createPhoenixClusterTools } from "./src/tools/cluster.js";
@@ -138,6 +139,11 @@ const phoenixBridgePlugin = {
     api.registerChannel({
       plugin: createPhoenixChannelPlugin(phoenixClient, logger) as ChannelPlugin,
     });
+
+    // =========================================================================
+    // 1c. LLM Provider (Ollama)
+    // =========================================================================
+    api.registerProvider(createOllamaProvider());
 
     // =========================================================================
     // 2. Agent Tools (memory, cluster, agent)
@@ -469,7 +475,9 @@ const phoenixBridgePlugin = {
       }
     });
 
-    logger.info("Phoenix Bridge v2 registered (channel + hooks + service + commands + gateway)");
+    logger.info(
+      "Phoenix Bridge v2 registered (provider + channel + hooks + service + commands + gateway)",
+    );
   },
 };
 

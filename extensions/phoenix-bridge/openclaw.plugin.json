@@ -2,6 +2,7 @@
   "id": "phoenix-bridge",
   "kind": "tools",
   "channels": ["phoenix"],
+  "providers": ["ollama"],
   "uiHints": {
     "mcpServers.enhancedMemory.enabled": {
       "label": "Enhanced Memory",

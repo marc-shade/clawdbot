@@ -20,7 +20,7 @@ The phoenix-bridge extension was using 3 of 11 OpenClaw registration APIs (`regi
 
 ```
 extensions/phoenix-bridge/
-  index.ts                       # Plugin entry — registers all 6 API surfaces
+  index.ts                       # Plugin entry — registers all 7 API surfaces
   openclaw.plugin.json           # Plugin manifest with feature toggle schema
   package.json                   # @openclaw/phoenix-bridge, workspace dep
   src/
@@ -40,6 +40,8 @@ extensions/phoenix-bridge/
       gateway-adapter.ts         # startAccount/stopAccount (polls agent-runtime)
       outbound-adapter.ts        # sendText → enhanced-memory storage
       status-adapter.ts          # probeAccount → MCP server health
+    provider/
+      ollama-provider.ts         # registerProvider for local Ollama LLM instances
 ```
 
 ## API Surface Coverage
@@ -56,7 +58,7 @@ extensions/phoenix-bridge/
 | `registerHttpHandler`   | No   | Not needed                                   |
 | `registerHttpRoute`     | No   | Not needed                                   |
 | `registerChannel`       | Yes  | Phoenix as messaging channel (direct chat)   |
-| `registerProvider`      | No   | Not applicable                               |
+| `registerProvider`      | Yes  | Ollama local LLM with auto-discovery         |
 
 ## Hook Integration
 
@@ -123,6 +125,35 @@ Direct chat only (`chatTypes: ["direct"]`), no reactions/threads/media/polls. Bl
 - Unified message history — Phoenix interactions in same session store as other channels
 - Channel routing — Route Phoenix events to specific agent routes
 
+## Ollama Provider
+
+Registers local Ollama instances as an LLM provider in OpenClaw, making locally-running models available through the unified model selector alongside Claude, GPT, Gemini, etc.
+
+### Auth Flow
+
+The provider uses a `"custom"` auth kind. When the user runs `/login ollama`:
+
+1. Prompts for Ollama base URL (defaults to `OLLAMA_HOST` env var or `http://localhost:11434`)
+2. Calls `GET /api/tags` to discover all available models
+3. Calls `POST /api/show` for each model to get exact context window sizes
+4. Builds `ModelDefinitionConfig` entries with inferred capabilities
+5. Returns `configPatch` that configures the `ollama` provider in OpenClaw's model system
+
+### Model Capability Inference
+
+| Pattern        | Detection                                                                 |
+| -------------- | ------------------------------------------------------------------------- |
+| Vision         | `llava`, `vision`, `bakllava`, `minicpm-v`, `moondream`, `cogvlm` in name |
+| Reasoning      | `deepseek-r1`, `qwq`, `marco-o1`, `sky-t1` in name                        |
+| Context window | Queried from `/api/show` model_info, falls back to family-based defaults  |
+
+### What This Enables
+
+- `openclaw model ollama/llama3.3:latest` — Select a local model
+- `/login ollama` — Discover and register all local models
+- Zero-cost inference for cheap tasks
+- Foundation for `before_model_resolve` hook to route tasks intelligently
+
 ## Design Decisions
 
 **Inline types for hook handlers**: The plugin SDK exports `OpenClawPluginApi` but not hook event types (`PluginHookBeforeAgentStartEvent`, etc.). Rather than importing from internal paths, each hook file defines its own minimal inline types matching the expected signatures. This is resilient to SDK refactors.
@@ -134,6 +165,12 @@ Direct chat only (`chatTypes: ["direct"]`), no reactions/threads/media/polls. Bl
 **`label` field on all tools**: The upstream `AgentTool` interface (from `@mariozechner/pi-agent-core`) requires a `label: string` field. Added to all 9 tools.
 
 **`as ChannelPlugin` cast for registerChannel**: The `registerChannel` API expects `ChannelPlugin` with default generic parameters (`any, unknown, unknown`). Our typed `ChannelPlugin<ResolvedPhoenixAccount, PhoenixProbe>` is structurally compatible but TypeScript's generic variance rules reject it. The cast follows the same pattern used by the Telegram extension (`telegramPlugin as ChannelPlugin`).
+
+**`"ollama"` as native ModelApi**: OpenClaw already defines `"ollama"` in its `ModelApi` type union, so the provider uses the built-in Ollama protocol support rather than wrapping it as OpenAI-compatible. This gives correct streaming behavior and chat template handling.
+
+**Dynamic model discovery over static config**: Rather than hardcoding model definitions, the auth flow queries Ollama's API at registration time. This means the model list always matches what's actually available. Users re-run `/login ollama` to refresh after pulling new models.
+
+**`ProviderPlugin` not exported from SDK**: The plugin SDK exports `ProviderAuthContext` and `ProviderAuthResult` but not `ProviderPlugin` itself. The `createOllamaProvider()` function omits the explicit return type and lets TypeScript infer it from `api.registerProvider()`, following the pattern used by `copilot-proxy`.
 
 ## Verification
 
