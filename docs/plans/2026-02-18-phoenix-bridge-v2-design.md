@@ -20,7 +20,7 @@ The phoenix-bridge extension was using 3 of 11 OpenClaw registration APIs (`regi
 
 ```
 extensions/phoenix-bridge/
-  index.ts                       # Plugin entry — registers all 8 API surfaces
+  index.ts                       # Plugin entry — registers all 8 API surfaces, 15 hooks
   openclaw.plugin.json           # Plugin manifest with feature toggle schema
   package.json                   # @openclaw/phoenix-bridge, workspace dep
   src/
@@ -31,6 +31,9 @@ extensions/phoenix-bridge/
       session-persist.ts         # agent_end, session_end, after_compaction
       tool-guard.ts              # before_tool_call (Ember gating), after_tool_call (logging)
       telemetry.ts               # llm_input, llm_output, before_compaction (observability)
+      prompt-enhance.ts          # before_prompt_build (conversation-aware memory injection)
+      message-logger.ts          # message_received, message_sent (channel history)
+      gateway-lifecycle.ts       # gateway_start, gateway_stop (WebSocket lifecycle)
     tools/
       memory.ts                  # 3 tools: store, search, recall
       cluster.ts                 # 3 tools: execute, status, offload
@@ -54,7 +57,7 @@ extensions/phoenix-bridge/
 | `registerCommand`       | Yes  | `/phoenix` slash command                     |
 | `registerCli`           | Yes  | `openclaw phoenix <subcommand>` terminal CLI |
 | `registerGatewayMethod` | Yes  | 12 WebSocket endpoints                       |
-| `on()` hooks            | Yes  | 10 lifecycle hooks                           |
+| `on()` hooks            | Yes  | 15 lifecycle hooks                           |
 | `registerHook`          | No   | Covered by `on()`                            |
 | `registerHttpHandler`   | No   | Not needed                                   |
 | `registerHttpRoute`     | No   | Not needed                                   |
@@ -75,6 +78,11 @@ extensions/phoenix-bridge/
 | `llm_input`            | `createLlmInputHook`         | Records prompt metadata (provider, model, length, history size, image count) to enhanced-memory for traffic analysis                           |
 | `llm_output`           | `createLlmOutputHook`        | Records response metadata (token usage, output length, provider/model) to enhanced-memory for cost tracking                                    |
 | `before_compaction`    | `createBeforeCompactionHook` | Snapshots last 3 assistant messages and compaction metrics before context is reduced, preserving session knowledge                             |
+| `before_prompt_build`  | `createPromptEnhanceHook`    | Searches enhanced-memory using prompt + recent conversation topics, injects relevant memories via `prependContext`                             |
+| `message_received`     | `createMessageReceivedHook`  | Records inbound channel messages to enhanced-memory for unified cross-channel message history                                                  |
+| `message_sent`         | `createMessageSentHook`      | Records outbound channel messages with success/failure status to enhanced-memory                                                               |
+| `gateway_start`        | `createGatewayStartHook`     | Records WebSocket gateway startup event (port) to enhanced-memory for uptime tracking                                                          |
+| `gateway_stop`         | `createGatewayStopHook`      | Records WebSocket gateway shutdown event (reason) to enhanced-memory for availability analysis                                                 |
 
 ## Gateway Methods
 
@@ -96,7 +104,7 @@ All gateway methods use the `({ params, respond }) => void` pattern per `Gateway
 
 ## Configuration
 
-Five feature toggles in `openclaw.plugin.json`, all default `true`:
+Eight feature toggles in `openclaw.plugin.json`, all default `true`:
 
 | Flag                    | Controls                                               |
 | ----------------------- | ------------------------------------------------------ |
@@ -105,6 +113,9 @@ Five feature toggles in `openclaw.plugin.json`, all default `true`:
 | `enableToolGuard`       | `before_tool_call` + `after_tool_call` hooks           |
 | `enableModelRouting`    | `before_model_resolve` hook (Ollama routing)           |
 | `enableTelemetry`       | `llm_input` + `llm_output` + `before_compaction` hooks |
+| `enablePromptEnhance`   | `before_prompt_build` hook                             |
+| `enableMessageLogging`  | `message_received` + `message_sent` hooks              |
+| `enableGatewayLogging`  | `gateway_start` + `gateway_stop` hooks                 |
 
 Optional `modelRouting` sub-config:
 

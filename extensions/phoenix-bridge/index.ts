@@ -1,7 +1,10 @@
 import type { ChannelPlugin, OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { createPhoenixChannelPlugin } from "./src/channel/phoenix-channel.js";
+import { createGatewayStartHook, createGatewayStopHook } from "./src/hooks/gateway-lifecycle.js";
 import { createMemoryInjectHook } from "./src/hooks/memory-inject.js";
+import { createMessageReceivedHook, createMessageSentHook } from "./src/hooks/message-logger.js";
 import { createModelRouterHook } from "./src/hooks/model-router.js";
+import { createPromptEnhanceHook } from "./src/hooks/prompt-enhance.js";
 import {
   createAgentEndHook,
   createSessionEndHook,
@@ -106,6 +109,21 @@ const phoenixBridgePlugin = {
           description: "Record LLM traffic and compaction snapshots to Phoenix memory",
           default: true,
         },
+        enablePromptEnhance: {
+          type: "boolean",
+          description: "Inject conversation-aware Phoenix memories into prompt context",
+          default: true,
+        },
+        enableMessageLogging: {
+          type: "boolean",
+          description: "Log channel messages (received/sent) to Phoenix memory",
+          default: true,
+        },
+        enableGatewayLogging: {
+          type: "boolean",
+          description: "Log WebSocket gateway start/stop events to Phoenix memory",
+          default: true,
+        },
         modelRouting: {
           type: "object",
           properties: {
@@ -151,6 +169,18 @@ const phoenixBridgePlugin = {
       enableTelemetry: {
         label: "LLM Telemetry",
         help: "Record LLM input/output and pre-compaction snapshots to Phoenix memory",
+      },
+      enablePromptEnhance: {
+        label: "Prompt Enhancement",
+        help: "Inject conversation-aware Phoenix memories into prompt context",
+      },
+      enableMessageLogging: {
+        label: "Message Logging",
+        help: "Log channel messages to Phoenix memory for unified history",
+      },
+      enableGatewayLogging: {
+        label: "Gateway Logging",
+        help: "Log WebSocket gateway lifecycle events to Phoenix memory",
       },
     },
   },
@@ -240,6 +270,25 @@ const phoenixBridgePlugin = {
       api.on("llm_input", createLlmInputHook(phoenixClient, logger));
       api.on("llm_output", createLlmOutputHook(phoenixClient, logger));
       api.on("before_compaction", createBeforeCompactionTelemetryHook(phoenixClient, logger));
+    }
+
+    // Prompt enhancement: conversation-aware memory injection
+    if (config.enablePromptEnhance !== false) {
+      api.on("before_prompt_build", createPromptEnhanceHook(phoenixClient, logger), {
+        priority: 10,
+      });
+    }
+
+    // Message logging: channel message history
+    if (config.enableMessageLogging !== false) {
+      api.on("message_received", createMessageReceivedHook(phoenixClient, logger));
+      api.on("message_sent", createMessageSentHook(phoenixClient, logger));
+    }
+
+    // Gateway lifecycle: WebSocket start/stop tracking
+    if (config.enableGatewayLogging !== false) {
+      api.on("gateway_start", createGatewayStartHook(phoenixClient, logger));
+      api.on("gateway_stop", createGatewayStopHook(phoenixClient, logger));
     }
 
     // =========================================================================
@@ -536,7 +585,7 @@ const phoenixBridgePlugin = {
     });
 
     logger.info(
-      "Phoenix Bridge v2 registered (provider + channel + 10 hooks + service + commands + gateway)",
+      "Phoenix Bridge v2 registered (provider + channel + 15 hooks + service + commands + gateway)",
     );
   },
 };

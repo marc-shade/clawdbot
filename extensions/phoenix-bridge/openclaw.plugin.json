@@ -40,6 +40,18 @@
     "enableTelemetry": {
       "label": "LLM Telemetry",
       "help": "Record LLM input/output and pre-compaction snapshots to Phoenix memory"
+    },
+    "enablePromptEnhance": {
+      "label": "Prompt Enhancement",
+      "help": "Inject conversation-aware Phoenix memories into prompt context"
+    },
+    "enableMessageLogging": {
+      "label": "Message Logging",
+      "help": "Log channel messages to Phoenix memory for unified history"
+    },
+    "enableGatewayLogging": {
+      "label": "Gateway Logging",
+      "help": "Log WebSocket gateway lifecycle events to Phoenix memory"
     }
   },
   "configSchema": {
@@ -107,6 +119,18 @@
         "default": true
       },
       "enableTelemetry": {
+        "type": "boolean",
+        "default": true
+      },
+      "enablePromptEnhance": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableMessageLogging": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableGatewayLogging": {
         "type": "boolean",
         "default": true
       },
