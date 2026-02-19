@@ -1,6 +1,7 @@
 import type { ChannelPlugin, OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { createPhoenixChannelPlugin } from "./src/channel/phoenix-channel.js";
 import { createMemoryInjectHook } from "./src/hooks/memory-inject.js";
+import { createModelRouterHook } from "./src/hooks/model-router.js";
 import {
   createAgentEndHook,
   createSessionEndHook,
@@ -90,6 +91,24 @@ const phoenixBridgePlugin = {
           description: "Enable Ember conscience keeper for tool safety",
           default: true,
         },
+        enableModelRouting: {
+          type: "boolean",
+          description: "Route simple prompts to local Ollama (requires /login ollama)",
+          default: true,
+        },
+        modelRouting: {
+          type: "object",
+          properties: {
+            ollamaModel: {
+              type: "string",
+              description: "Preferred Ollama model for routed tasks (default: first available)",
+            },
+            maxPromptLength: {
+              type: "number",
+              description: "Max prompt length for Ollama routing consideration (default: 300)",
+            },
+          },
+        },
       },
     },
     uiHints: {
@@ -114,6 +133,10 @@ const phoenixBridgePlugin = {
       enableToolGuard: {
         label: "Tool Safety Guard",
         help: "Ember conscience keeper integration for tool gating",
+      },
+      enableModelRouting: {
+        label: "Model Routing",
+        help: "Route simple prompts to local Ollama for zero-cost inference",
       },
     },
   },
@@ -163,6 +186,22 @@ const phoenixBridgePlugin = {
     // =========================================================================
     // 3. Lifecycle Hooks
     // =========================================================================
+
+    // Model routing: route simple prompts to local Ollama
+    if (config.enableModelRouting !== false) {
+      api.on(
+        "before_model_resolve",
+        createModelRouterHook(
+          () => api.config,
+          {
+            ollamaModel: config.modelRouting?.ollamaModel,
+            maxPromptLength: config.modelRouting?.maxPromptLength,
+          },
+          logger,
+        ),
+        { priority: 5 },
+      );
+    }
 
     // Memory injection: inject relevant Phoenix memories before agent starts
     if (config.enableMemoryInjection !== false) {
@@ -476,7 +515,7 @@ const phoenixBridgePlugin = {
     });
 
     logger.info(
-      "Phoenix Bridge v2 registered (provider + channel + hooks + service + commands + gateway)",
+      "Phoenix Bridge v2 registered (provider + channel + 7 hooks + service + commands + gateway)",
     );
   },
 };

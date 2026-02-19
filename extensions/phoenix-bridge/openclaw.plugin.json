@@ -32,6 +32,10 @@
     "enableToolGuard": {
       "label": "Tool Safety Guard",
       "help": "Ember conscience keeper integration for tool gating"
+    },
+    "enableModelRouting": {
+      "label": "Model Routing",
+      "help": "Route simple prompts to local Ollama for zero-cost inference"
     }
   },
   "configSchema": {
@@ -93,6 +97,17 @@
       "enableToolGuard": {
         "type": "boolean",
         "default": true
+      },
+      "enableModelRouting": {
+        "type": "boolean",
+        "default": true
+      },
+      "modelRouting": {
+        "type": "object",
+        "properties": {
+          "ollamaModel": { "type": "string" },
+          "maxPromptLength": { "type": "number" }
+        }
       }
     }
   }

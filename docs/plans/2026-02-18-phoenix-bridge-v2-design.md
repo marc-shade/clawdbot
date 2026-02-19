@@ -62,14 +62,15 @@ extensions/phoenix-bridge/
 
 ## Hook Integration
 
-| Hook Event           | Handler                     | Behavior                                                                                                                                       |
-| -------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `before_agent_start` | `createMemoryInjectHook`    | Searches enhanced-memory for prompt-relevant entities, returns `prependContext` with formatted memories                                        |
-| `agent_end`          | `createAgentEndHook`        | Extracts last assistant message as summary, stores session outcome with success/failure metadata                                               |
-| `session_end`        | `createSessionEndHook`      | Stores session lifecycle event (message count, duration)                                                                                       |
-| `after_compaction`   | `createAfterCompactionHook` | Records compaction metrics to memory                                                                                                           |
-| `before_tool_call`   | `createBeforeToolCallHook`  | Checks sensitive tools (bash, write_file, delete, deploy, send_message) against Ember `ember_check_violation`. Fails open if Ember unavailable |
-| `after_tool_call`    | `createAfterToolCallHook`   | Records tool usage to Thunder observation system for pattern learning                                                                          |
+| Hook Event             | Handler                     | Behavior                                                                                                                                       |
+| ---------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `before_model_resolve` | `createModelRouterHook`     | Scores prompt complexity via keyword/length heuristics; routes simple prompts to local Ollama, keeps complex work on Claude                    |
+| `before_agent_start`   | `createMemoryInjectHook`    | Searches enhanced-memory for prompt-relevant entities, returns `prependContext` with formatted memories                                        |
+| `agent_end`            | `createAgentEndHook`        | Extracts last assistant message as summary, stores session outcome with success/failure metadata                                               |
+| `session_end`          | `createSessionEndHook`      | Stores session lifecycle event (message count, duration)                                                                                       |
+| `after_compaction`     | `createAfterCompactionHook` | Records compaction metrics to memory                                                                                                           |
+| `before_tool_call`     | `createBeforeToolCallHook`  | Checks sensitive tools (bash, write_file, delete, deploy, send_message) against Ember `ember_check_violation`. Fails open if Ember unavailable |
+| `after_tool_call`      | `createAfterToolCallHook`   | Records tool usage to Thunder observation system for pattern learning                                                                          |
 
 ## Gateway Methods
 
@@ -91,13 +92,21 @@ All gateway methods use the `({ params, respond }) => void` pattern per `Gateway
 
 ## Configuration
 
-Three feature toggles in `openclaw.plugin.json`, all default `true`:
+Four feature toggles in `openclaw.plugin.json`, all default `true`:
 
 | Flag                    | Controls                                               |
 | ----------------------- | ------------------------------------------------------ |
 | `enableMemoryInjection` | `before_agent_start` hook                              |
 | `enableSessionPersist`  | `agent_end` + `session_end` + `after_compaction` hooks |
 | `enableToolGuard`       | `before_tool_call` + `after_tool_call` hooks           |
+| `enableModelRouting`    | `before_model_resolve` hook (Ollama routing)           |
+
+Optional `modelRouting` sub-config:
+
+| Field             | Default         | Description                                |
+| ----------------- | --------------- | ------------------------------------------ |
+| `ollamaModel`     | first available | Preferred Ollama model for routed tasks    |
+| `maxPromptLength` | 300             | Max chars for Ollama routing consideration |
 
 ## Channel Integration
 
