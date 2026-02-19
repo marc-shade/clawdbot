@@ -52,6 +52,18 @@
     "enableGatewayLogging": {
       "label": "Gateway Logging",
       "help": "Log WebSocket gateway lifecycle events to Phoenix memory"
+    },
+    "enableSessionLifecycle": {
+      "label": "Session Lifecycle",
+      "help": "Log session start and reset events to Phoenix memory"
+    },
+    "enableMessageFilter": {
+      "label": "Message Filter",
+      "help": "Intercept outbound messages before delivery"
+    },
+    "enableTranscriptHooks": {
+      "label": "Transcript Hooks",
+      "help": "Log tool results and message writes to Phoenix memory"
     }
   },
   "configSchema": {
@@ -131,6 +143,18 @@
         "default": true
       },
       "enableGatewayLogging": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableSessionLifecycle": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableMessageFilter": {
+        "type": "boolean",
+        "default": true
+      },
+      "enableTranscriptHooks": {
         "type": "boolean",
         "default": true
       },

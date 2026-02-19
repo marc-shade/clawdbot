@@ -2,9 +2,11 @@ import type { ChannelPlugin, OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { createPhoenixChannelPlugin } from "./src/channel/phoenix-channel.js";
 import { createGatewayStartHook, createGatewayStopHook } from "./src/hooks/gateway-lifecycle.js";
 import { createMemoryInjectHook } from "./src/hooks/memory-inject.js";
+import { createMessageSendingHook } from "./src/hooks/message-filter.js";
 import { createMessageReceivedHook, createMessageSentHook } from "./src/hooks/message-logger.js";
 import { createModelRouterHook } from "./src/hooks/model-router.js";
 import { createPromptEnhanceHook } from "./src/hooks/prompt-enhance.js";
+import { createSessionStartHook, createBeforeResetHook } from "./src/hooks/session-lifecycle.js";
 import {
   createAgentEndHook,
   createSessionEndHook,
@@ -16,6 +18,10 @@ import {
   createBeforeCompactionHook as createBeforeCompactionTelemetryHook,
 } from "./src/hooks/telemetry.js";
 import { createBeforeToolCallHook, createAfterToolCallHook } from "./src/hooks/tool-guard.js";
+import {
+  createToolResultPersistHook,
+  createBeforeMessageWriteHook,
+} from "./src/hooks/transcript-hooks.js";
 import { PhoenixMcpClient } from "./src/phoenix-client.js";
 import { createOllamaProvider } from "./src/provider/ollama-provider.js";
 import { createPhoenixService } from "./src/service.js";
@@ -124,6 +130,21 @@ const phoenixBridgePlugin = {
           description: "Log WebSocket gateway start/stop events to Phoenix memory",
           default: true,
         },
+        enableSessionLifecycle: {
+          type: "boolean",
+          description: "Log session start and reset events to Phoenix memory",
+          default: true,
+        },
+        enableMessageFilter: {
+          type: "boolean",
+          description: "Intercept outbound messages before delivery (logging, future policy)",
+          default: true,
+        },
+        enableTranscriptHooks: {
+          type: "boolean",
+          description: "Log tool results and message writes to Phoenix memory",
+          default: true,
+        },
         modelRouting: {
           type: "object",
           properties: {
@@ -181,6 +202,20 @@ const phoenixBridgePlugin = {
       enableGatewayLogging: {
         label: "Gateway Logging",
         help: "Log WebSocket gateway lifecycle events to Phoenix memory",
+      },
+      enableSessionLifecycle: {
+        label: "Session Lifecycle",
+        help: "Log session start and reset events to Phoenix memory",
+      },
+      enableMessageFilter: {
+        label: "Message Filter",
+        help: "Intercept outbound messages before delivery",
+        advanced: true,
+      },
+      enableTranscriptHooks: {
+        label: "Transcript Hooks",
+        help: "Log tool results and message writes to Phoenix memory",
+        advanced: true,
       },
     },
   },
@@ -289,6 +324,23 @@ const phoenixBridgePlugin = {
     if (config.enableGatewayLogging !== false) {
       api.on("gateway_start", createGatewayStartHook(phoenixClient, logger));
       api.on("gateway_stop", createGatewayStopHook(phoenixClient, logger));
+    }
+
+    // Session lifecycle: session start + pre-reset snapshots
+    if (config.enableSessionLifecycle !== false) {
+      api.on("session_start", createSessionStartHook(phoenixClient, logger));
+      api.on("before_reset", createBeforeResetHook(phoenixClient, logger));
+    }
+
+    // Message filter: intercept outbound messages before delivery
+    if (config.enableMessageFilter !== false) {
+      api.on("message_sending", createMessageSendingHook(phoenixClient, logger));
+    }
+
+    // Transcript hooks: tool result and message write interception
+    if (config.enableTranscriptHooks !== false) {
+      api.on("tool_result_persist", createToolResultPersistHook(phoenixClient, logger));
+      api.on("before_message_write", createBeforeMessageWriteHook(phoenixClient, logger));
     }
 
     // =========================================================================
@@ -585,7 +637,7 @@ const phoenixBridgePlugin = {
     });
 
     logger.info(
-      "Phoenix Bridge v2 registered (provider + channel + 15 hooks + service + commands + gateway)",
+      "Phoenix Bridge v2 registered (provider + channel + 20 hooks + service + commands + gateway)",
     );
   },
 };

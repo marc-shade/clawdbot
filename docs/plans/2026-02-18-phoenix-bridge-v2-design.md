@@ -20,7 +20,7 @@ The phoenix-bridge extension was using 3 of 11 OpenClaw registration APIs (`regi
 
 ```
 extensions/phoenix-bridge/
-  index.ts                       # Plugin entry — registers all 8 API surfaces, 15 hooks
+  index.ts                       # Plugin entry — registers all 8 API surfaces, 20/20 hooks
   openclaw.plugin.json           # Plugin manifest with feature toggle schema
   package.json                   # @openclaw/phoenix-bridge, workspace dep
   src/
@@ -34,6 +34,9 @@ extensions/phoenix-bridge/
       prompt-enhance.ts          # before_prompt_build (conversation-aware memory injection)
       message-logger.ts          # message_received, message_sent (channel history)
       gateway-lifecycle.ts       # gateway_start, gateway_stop (WebSocket lifecycle)
+      session-lifecycle.ts       # session_start, before_reset (session events)
+      message-filter.ts          # message_sending (outbound interception)
+      transcript-hooks.ts        # tool_result_persist, before_message_write (transcript)
     tools/
       memory.ts                  # 3 tools: store, search, recall
       cluster.ts                 # 3 tools: execute, status, offload
@@ -57,7 +60,7 @@ extensions/phoenix-bridge/
 | `registerCommand`       | Yes  | `/phoenix` slash command                     |
 | `registerCli`           | Yes  | `openclaw phoenix <subcommand>` terminal CLI |
 | `registerGatewayMethod` | Yes  | 12 WebSocket endpoints                       |
-| `on()` hooks            | Yes  | 15 lifecycle hooks                           |
+| `on()` hooks            | Yes  | 20/20 lifecycle hooks (complete coverage)    |
 | `registerHook`          | No   | Covered by `on()`                            |
 | `registerHttpHandler`   | No   | Not needed                                   |
 | `registerHttpRoute`     | No   | Not needed                                   |
@@ -66,23 +69,28 @@ extensions/phoenix-bridge/
 
 ## Hook Integration
 
-| Hook Event             | Handler                      | Behavior                                                                                                                                       |
-| ---------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `before_model_resolve` | `createModelRouterHook`      | Scores prompt complexity via keyword/length heuristics; routes simple prompts to local Ollama, keeps complex work on Claude                    |
-| `before_agent_start`   | `createMemoryInjectHook`     | Searches enhanced-memory for prompt-relevant entities, returns `prependContext` with formatted memories                                        |
-| `agent_end`            | `createAgentEndHook`         | Extracts last assistant message as summary, stores session outcome with success/failure metadata                                               |
-| `session_end`          | `createSessionEndHook`       | Stores session lifecycle event (message count, duration)                                                                                       |
-| `after_compaction`     | `createAfterCompactionHook`  | Records compaction metrics to memory                                                                                                           |
-| `before_tool_call`     | `createBeforeToolCallHook`   | Checks sensitive tools (bash, write_file, delete, deploy, send_message) against Ember `ember_check_violation`. Fails open if Ember unavailable |
-| `after_tool_call`      | `createAfterToolCallHook`    | Records tool usage to Thunder observation system for pattern learning                                                                          |
-| `llm_input`            | `createLlmInputHook`         | Records prompt metadata (provider, model, length, history size, image count) to enhanced-memory for traffic analysis                           |
-| `llm_output`           | `createLlmOutputHook`        | Records response metadata (token usage, output length, provider/model) to enhanced-memory for cost tracking                                    |
-| `before_compaction`    | `createBeforeCompactionHook` | Snapshots last 3 assistant messages and compaction metrics before context is reduced, preserving session knowledge                             |
-| `before_prompt_build`  | `createPromptEnhanceHook`    | Searches enhanced-memory using prompt + recent conversation topics, injects relevant memories via `prependContext`                             |
-| `message_received`     | `createMessageReceivedHook`  | Records inbound channel messages to enhanced-memory for unified cross-channel message history                                                  |
-| `message_sent`         | `createMessageSentHook`      | Records outbound channel messages with success/failure status to enhanced-memory                                                               |
-| `gateway_start`        | `createGatewayStartHook`     | Records WebSocket gateway startup event (port) to enhanced-memory for uptime tracking                                                          |
-| `gateway_stop`         | `createGatewayStopHook`      | Records WebSocket gateway shutdown event (reason) to enhanced-memory for availability analysis                                                 |
+| Hook Event             | Handler                        | Behavior                                                                                                                                       |
+| ---------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `before_model_resolve` | `createModelRouterHook`        | Scores prompt complexity via keyword/length heuristics; routes simple prompts to local Ollama, keeps complex work on Claude                    |
+| `before_agent_start`   | `createMemoryInjectHook`       | Searches enhanced-memory for prompt-relevant entities, returns `prependContext` with formatted memories                                        |
+| `agent_end`            | `createAgentEndHook`           | Extracts last assistant message as summary, stores session outcome with success/failure metadata                                               |
+| `session_end`          | `createSessionEndHook`         | Stores session lifecycle event (message count, duration)                                                                                       |
+| `after_compaction`     | `createAfterCompactionHook`    | Records compaction metrics to memory                                                                                                           |
+| `before_tool_call`     | `createBeforeToolCallHook`     | Checks sensitive tools (bash, write_file, delete, deploy, send_message) against Ember `ember_check_violation`. Fails open if Ember unavailable |
+| `after_tool_call`      | `createAfterToolCallHook`      | Records tool usage to Thunder observation system for pattern learning                                                                          |
+| `llm_input`            | `createLlmInputHook`           | Records prompt metadata (provider, model, length, history size, image count) to enhanced-memory for traffic analysis                           |
+| `llm_output`           | `createLlmOutputHook`          | Records response metadata (token usage, output length, provider/model) to enhanced-memory for cost tracking                                    |
+| `before_compaction`    | `createBeforeCompactionHook`   | Snapshots last 3 assistant messages and compaction metrics before context is reduced, preserving session knowledge                             |
+| `before_prompt_build`  | `createPromptEnhanceHook`      | Searches enhanced-memory using prompt + recent conversation topics, injects relevant memories via `prependContext`                             |
+| `message_received`     | `createMessageReceivedHook`    | Records inbound channel messages to enhanced-memory for unified cross-channel message history                                                  |
+| `message_sent`         | `createMessageSentHook`        | Records outbound channel messages with success/failure status to enhanced-memory                                                               |
+| `gateway_start`        | `createGatewayStartHook`       | Records WebSocket gateway startup event (port) to enhanced-memory for uptime tracking                                                          |
+| `gateway_stop`         | `createGatewayStopHook`        | Records WebSocket gateway shutdown event (reason) to enhanced-memory for availability analysis                                                 |
+| `session_start`        | `createSessionStartHook`       | Records session creation (including resumed sessions) to enhanced-memory for session history                                                   |
+| `before_reset`         | `createBeforeResetHook`        | Snapshots last assistant message and message count before /new or /reset clears the session                                                    |
+| `message_sending`      | `createMessageSendingHook`     | Intercepts outbound messages before delivery; logs attempt metadata. Can modify/cancel (future: policy)                                        |
+| `tool_result_persist`  | `createToolResultPersistHook`  | Logs tool result metadata (name, synthetic flag) to memory when results are written to transcript. Synchronous                                 |
+| `before_message_write` | `createBeforeMessageWriteHook` | Logs all message writes to session transcript. Can block or modify messages (currently pass-through). Synchronous                              |
 
 ## Gateway Methods
 
@@ -104,18 +112,21 @@ All gateway methods use the `({ params, respond }) => void` pattern per `Gateway
 
 ## Configuration
 
-Eight feature toggles in `openclaw.plugin.json`, all default `true`:
+Eleven feature toggles in `openclaw.plugin.json`, all default `true`:
 
-| Flag                    | Controls                                               |
-| ----------------------- | ------------------------------------------------------ |
-| `enableMemoryInjection` | `before_agent_start` hook                              |
-| `enableSessionPersist`  | `agent_end` + `session_end` + `after_compaction` hooks |
-| `enableToolGuard`       | `before_tool_call` + `after_tool_call` hooks           |
-| `enableModelRouting`    | `before_model_resolve` hook (Ollama routing)           |
-| `enableTelemetry`       | `llm_input` + `llm_output` + `before_compaction` hooks |
-| `enablePromptEnhance`   | `before_prompt_build` hook                             |
-| `enableMessageLogging`  | `message_received` + `message_sent` hooks              |
-| `enableGatewayLogging`  | `gateway_start` + `gateway_stop` hooks                 |
+| Flag                     | Controls                                               |
+| ------------------------ | ------------------------------------------------------ |
+| `enableMemoryInjection`  | `before_agent_start` hook                              |
+| `enableSessionPersist`   | `agent_end` + `session_end` + `after_compaction` hooks |
+| `enableToolGuard`        | `before_tool_call` + `after_tool_call` hooks           |
+| `enableModelRouting`     | `before_model_resolve` hook (Ollama routing)           |
+| `enableTelemetry`        | `llm_input` + `llm_output` + `before_compaction` hooks |
+| `enablePromptEnhance`    | `before_prompt_build` hook                             |
+| `enableMessageLogging`   | `message_received` + `message_sent` hooks              |
+| `enableGatewayLogging`   | `gateway_start` + `gateway_stop` hooks                 |
+| `enableSessionLifecycle` | `session_start` + `before_reset` hooks                 |
+| `enableMessageFilter`    | `message_sending` hook                                 |
+| `enableTranscriptHooks`  | `tool_result_persist` + `before_message_write` hooks   |
 
 Optional `modelRouting` sub-config:
 
