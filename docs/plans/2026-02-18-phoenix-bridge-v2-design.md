@@ -34,6 +34,12 @@ extensions/phoenix-bridge/
       memory.ts                  # 3 tools: store, search, recall
       cluster.ts                 # 3 tools: execute, status, offload
       agent.ts                   # 3 tools: execute_task, create_goal, agent_status
+    channel/
+      phoenix-channel.ts         # ChannelPlugin definition (assembles adapters)
+      config-adapter.ts          # Account management (single default account)
+      gateway-adapter.ts         # startAccount/stopAccount (polls agent-runtime)
+      outbound-adapter.ts        # sendText → enhanced-memory storage
+      status-adapter.ts          # probeAccount → MCP server health
 ```
 
 ## API Surface Coverage
@@ -49,7 +55,7 @@ extensions/phoenix-bridge/
 | `registerHook`          | No   | Covered by `on()`                            |
 | `registerHttpHandler`   | No   | Not needed                                   |
 | `registerHttpRoute`     | No   | Not needed                                   |
-| `registerChannel`       | No   | Not applicable                               |
+| `registerChannel`       | Yes  | Phoenix as messaging channel (direct chat)   |
 | `registerProvider`      | No   | Not applicable                               |
 
 ## Hook Integration
@@ -91,6 +97,32 @@ Three feature toggles in `openclaw.plugin.json`, all default `true`:
 | `enableSessionPersist`  | `agent_end` + `session_end` + `after_compaction` hooks |
 | `enableToolGuard`       | `before_tool_call` + `after_tool_call` hooks           |
 
+## Channel Integration
+
+Phoenix is registered as a `ChannelPlugin` with id `"phoenix"`, making it accessible through OpenClaw's channel management system alongside Telegram, Slack, Discord, etc.
+
+### Adapters
+
+| Adapter    | File                           | Behavior                                                                                        |
+| ---------- | ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `config`   | `config-adapter.ts`            | Single "default" account, always configured (uses phoenix-bridge MCP client)                    |
+| `gateway`  | `gateway-adapter.ts`           | `startAccount` polls agent-runtime for ready/blocked tasks every 30s; `stopAccount` sets status |
+| `outbound` | `outbound-adapter.ts`          | `sendText` stores agent responses to enhanced-memory as `openclaw_channel_response` entities    |
+| `status`   | `status-adapter.ts`            | `probeAccount` checks all 3 MCP server connections; `buildAccountSnapshot` reports health       |
+| `security` | Inline in `phoenix-channel.ts` | DM policy = `"open"` (trusted local system channel)                                             |
+
+### Capabilities
+
+Direct chat only (`chatTypes: ["direct"]`), no reactions/threads/media/polls. Block streaming enabled (wait for full response before dispatching).
+
+### What This Enables
+
+- `openclaw channels phoenix status` — Phoenix connection health in OpenClaw CLI
+- `openclaw channels phoenix enable/disable` — Toggle event routing
+- Proactive agent engagement — Phoenix events trigger agent conversations
+- Unified message history — Phoenix interactions in same session store as other channels
+- Channel routing — Route Phoenix events to specific agent routes
+
 ## Design Decisions
 
 **Inline types for hook handlers**: The plugin SDK exports `OpenClawPluginApi` but not hook event types (`PluginHookBeforeAgentStartEvent`, etc.). Rather than importing from internal paths, each hook file defines its own minimal inline types matching the expected signatures. This is resilient to SDK refactors.
@@ -100,6 +132,8 @@ Three feature toggles in `openclaw.plugin.json`, all default `true`:
 **`respond()` instead of return**: Gateway methods use `respond(success, data)` instead of returning values, matching the `GatewayRequestHandler` contract where the handler returns `void`.
 
 **`label` field on all tools**: The upstream `AgentTool` interface (from `@mariozechner/pi-agent-core`) requires a `label: string` field. Added to all 9 tools.
+
+**`as ChannelPlugin` cast for registerChannel**: The `registerChannel` API expects `ChannelPlugin` with default generic parameters (`any, unknown, unknown`). Our typed `ChannelPlugin<ResolvedPhoenixAccount, PhoenixProbe>` is structurally compatible but TypeScript's generic variance rules reject it. The cast follows the same pattern used by the Telegram extension (`telegramPlugin as ChannelPlugin`).
 
 ## Verification
 

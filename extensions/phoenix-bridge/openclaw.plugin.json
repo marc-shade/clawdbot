@@ -1,6 +1,7 @@
 {
   "id": "phoenix-bridge",
   "kind": "tools",
+  "channels": ["phoenix"],
   "uiHints": {
     "mcpServers.enhancedMemory.enabled": {
       "label": "Enhanced Memory",

@@ -1,4 +1,5 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { ChannelPlugin, OpenClawPluginApi } from "openclaw/plugin-sdk";
+import { createPhoenixChannelPlugin } from "./src/channel/phoenix-channel.js";
 import { createMemoryInjectHook } from "./src/hooks/memory-inject.js";
 import {
   createAgentEndHook,
@@ -130,6 +131,13 @@ const phoenixBridgePlugin = {
     // 1. Service Lifecycle
     // =========================================================================
     api.registerService(createPhoenixService(phoenixClient));
+
+    // =========================================================================
+    // 1b. Channel Registration
+    // =========================================================================
+    api.registerChannel({
+      plugin: createPhoenixChannelPlugin(phoenixClient, logger) as ChannelPlugin,
+    });
 
     // =========================================================================
     // 2. Agent Tools (memory, cluster, agent)
@@ -461,7 +469,7 @@ const phoenixBridgePlugin = {
       }
     });
 
-    logger.info("Phoenix Bridge v2 registered (hooks + service + commands + gateway)");
+    logger.info("Phoenix Bridge v2 registered (channel + hooks + service + commands + gateway)");
   },
 };
 
